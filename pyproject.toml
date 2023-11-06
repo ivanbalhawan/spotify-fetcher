@@ -5,8 +5,21 @@ description = ""
 authors = [
     {name = "Mateus Furquim", email = "mfurquimdev@gmail.com"},
 ]
-dependencies = []
+dependencies = [
+    "requests>=2.31.0",
+    "ipython>=8.17.2",
+    "fastapi>=0.104.1",
+    "spotipy>=2.23.0",
+]
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "MIT"}
 
+[tool.pdm.dev-dependencies]
+dev = [
+    "uvicorn>=0.24.0",
+]
+
+[tool.pdm.scripts]
+start.cmd = "uvicorn src.main:app --reload --workers 1 --host 0.0.0.0 --port 56626"
+start.env_file.override = ".env"
