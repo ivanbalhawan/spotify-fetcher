@@ -6,6 +6,7 @@ import spotipy
 from fastapi import APIRouter
 from requests.models import HTTPError
 from spotipy import oauth2
+from spotipy.oauth2 import SpotifyOAuth
 
 # Reference code https://github.com/perelin/spotipy_oauth_demo/blob/master/spotipy_oauth_demo.py
 
@@ -33,39 +34,33 @@ sp_oauth = oauth2.SpotifyOAuth(
 )
 
 
+async def get_access_token():
+    token_info = sp_oauth.get_cached_token()
+
+    if token_info:
+        print("Found cached token!")
+        return token_info["access_token"]
+
+    return None
+
+
 @router.get("/login")
 async def request_user_authorization():
     """Request user authorization to Spotify API"""
-    # access_token = ""
+    access_token = await get_access_token()
 
-    # token_info = sp_oauth.get_cached_token()
+    if access_token:
+        print("Access token available! Trying to get user information...")
+        sp = spotipy.Spotify(access_token)
 
-    # if token_info:
-    #     print("Found cached token!")
-    #     access_token = token_info["access_token"]
-    # else:
-    #     url = request.url
-    #     code = sp_oauth.parse_response_code(url)
-    #     if code != url:
-    #         print(
-    #                 "Found Spotify auth code in Request URL! Trying to get valid access token..."
-    #                 )
-    #         token_info = sp_oauth.get_access_token(code)
-    #         access_token = token_info["access_token"]
+        results = sp.current_user_saved_tracks()
+        for idx, item in enumerate(results["items"]):
+            track = item["track"]
+            print(idx, track["artists"][0]["name"], " – ", track["name"])
+        return results
 
-    # if access_token:
-    #     print("Access token available! Trying to get user information...")
-    #     sp = spotipy.Spotify(access_token)
-    #     results = sp.current_user()
-    #     return results
-
-    return htmlForLoginButton()
-
-
-def htmlForLoginButton():
     auth_url = getSPOauthURI()
-    htmlLoginButton = "<a href='" + auth_url + "'>Login to Spotify</a>"
-    return htmlLoginButton
+    return auth_url
 
 
 def getSPOauthURI():
@@ -76,11 +71,25 @@ def getSPOauthURI():
 @router.get("/callback")
 async def callback(
     state: str,
-    code: str | None = None,
+    code: str,
     error: str | None = None,
-    cookies: dict | None = None,
 ):
     """Callback function"""
-    stored_state = cookies[state] if cookies else None
+    print(f"state: {state}\ncode: {code}\nerror: {error}")
 
-    print(f"state: {state}\ncode: {code}\nerror: {error}\nstored_state: {stored_state}")
+    url = f"/callback?state={state}&code={code}"
+    code = sp_oauth.parse_response_code(url)
+    if code != url:
+        print(
+            "Found Spotify auth code in Request URL! Trying to get valid access token."
+        )
+        token_info = sp_oauth.get_access_token(code)
+        access_token = token_info["access_token"]
+
+    print(f"Access token: {access_token}")
+    sp = spotipy.Spotify(access_token)
+
+    results = sp.current_user_saved_tracks()
+    for idx, item in enumerate(results["items"]):
+        track = item["track"]
+        print(idx, track["artists"][0]["name"], " – ", track["name"])
