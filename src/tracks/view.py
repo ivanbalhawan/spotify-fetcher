@@ -1,9 +1,8 @@
 import os
-from attrs import frozen
-from attrs import field
 
-import spotipy
 import pandas as pd
+import spotipy
+from attrs import frozen
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 
@@ -16,24 +15,24 @@ router = APIRouter()
 
 @frozen
 class TrackFeatures:
-    track_id : str
-    track_name : str
-    danceability : float
-    energy : float
-    key : int
-    loudness : float
-    mode : int
-    speechiness : float
-    acousticness : float
-    instrumentalness : float
-    liveness : float
-    valence : float
-    tempo : float
-    duration_ms : float
-    time_signature : int
+    track_id: str
+    track_name: str
+    danceability: float
+    energy: float
+    key: int
+    loudness: float
+    mode: int
+    speechiness: float
+    acousticness: float
+    instrumentalness: float
+    liveness: float
+    valence: float
+    tempo: float
+    duration_ms: float
+    time_signature: int
 
     @classmethod
-    def from_series(cls, features_series: pd.Series):
+    def from_series(cls, features_series: pd.Series) -> "TrackFeatures":
         features_dict = features_series.to_dict()
         return cls(**features_dict)
 
@@ -67,35 +66,30 @@ async def saved_tracks():
         print(result["next"])
         results.extend(result["items"])
         i += 1
-        break
 
     print(f"Found {len(results)} tracks")
-    # print(results[0])
-    # for idx, item in enumerate(results["items"]):
-    #     track = item["track"]
-    #     print(idx, track["artists"][0]["name"], " - ", track["name"])
-
-    tracks_df = pd.DataFrame([
-        {"track_id": item["track"]["id"], "track_name": item["track"]["name"]}
-        for item in results
-    ])
+    tracks_df = pd.DataFrame(
+        [{"track_id": item["track"]["id"], "track_name": item["track"]["name"]} for item in results]
+    )
     track_id_list = tracks_df.track_id.to_list()
 
     all_features = sp.audio_features(track_id_list)
     audio_features_df = pd.DataFrame(all_features)
     audio_features_df.rename({"id": "track_id"}, axis=1, inplace=True)
-    audio_features_df.drop(columns=[
-        "type",
-        "uri",
-        "track_href",
-        "analysis_url",
-    ], inplace=True)
+    audio_features_df.drop(
+        columns=[
+            "type",
+            "uri",
+            "track_href",
+            "analysis_url",
+        ],
+        inplace=True,
+    )
     # WARN: this is assuming that the order is always consistent
     audio_features_df["track_name"] = tracks_df["track_name"]
 
     track_features_list = [
-        TrackFeatures.from_series(row)
-        for _, row in audio_features_df.iterrows()
+        TrackFeatures.from_series(row) for _, row in audio_features_df.iterrows()
     ]
 
     return track_features_list
