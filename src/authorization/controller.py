@@ -6,7 +6,7 @@ from src.config import backend_settings
 sp_oauth = oauth2.SpotifyOAuth(
     auth_settings.spotipy_client_id,
     auth_settings.spotipy_client_secret,
-    f"{backend_settings.server_address}:{backend_settings.port_number}/tracks/saved",
+    f"{backend_settings.server_address}:{backend_settings.port_number}/authorization/callback",
     scope=auth_settings.spotipy_scope,
     cache_path=auth_settings.spotipy_cache,
     state=auth_settings.spotipy_state,
