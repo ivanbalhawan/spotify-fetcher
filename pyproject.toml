@@ -30,6 +30,7 @@ dev = [
     "mypy>=1.7.0",
     "pyright>=1.1.336",
     "pre-commit>=3.5.0",
+    "ipdb>=0.13.13",
 ]
 
 [tool.pdm.scripts]
