@@ -1,14 +1,15 @@
 import os
 
+import orjson
 import pandas as pd
 import spotipy
+from attrs import asdict
 from attrs import frozen
 from fastapi import APIRouter
-from fastapi.responses import RedirectResponse
+from fastapi.responses import StreamingResponse
 
-from src.authorization.controller import get_cached_access_token
-from src.authorization.controller import sp_oauth
-from src.config import backend_settings
+from authorization.controller import get_cached_access_token
+from authorization.controller import sp_oauth
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ router = APIRouter()
 class TrackFeatures:
     track_id: str
     track_name: str
+    track_artists: set[str]
     danceability: float
     energy: float
     key: int
@@ -46,7 +48,11 @@ class TrackFeatures:
 async def saved_tracks_to_df(result):
     tracks_df = pd.DataFrame(
         [
-            {"track_id": item["track"]["id"], "track_name": item["track"]["name"]}
+            {
+                "track_id": item["track"]["id"],
+                "track_name": item["track"]["name"],
+                "track_artists": [artist["name"] for artist in item["track"]["artists"]],
+            }
             for item in result.get("items", [])
         ]
     )
@@ -78,23 +84,13 @@ async def request_track_features(sp, tracks_df):
     )
     # WARN: this is assuming that the order is always consistent
     track_features_df["track_name"] = tracks_df["track_name"]
+    track_features_df["track_artists"] = tracks_df["track_artists"]
 
     return track_features_df
 
 
-@router.get("/saved")
-async def saved_tracks():
-    access_token = await get_cached_access_token(sp_oauth)
-    if not access_token:
-        return RedirectResponse(
-            f"{backend_settings.server_address}:{backend_settings.port_number}/authorization/login"
-        )
-
-    print("Access token available! Trying to get user information...")
-    sp = spotipy.Spotify(access_token)
-
+async def generate_next_tracks(sp):
     i: int = 0
-    features_result = pd.DataFrame()
     while True:
         result = await request_saved_tracks(sp, i)
         i += 1
@@ -107,13 +103,21 @@ async def saved_tracks():
         if tracks_df is not None and not tracks_df.empty:
             track_features_df = await request_track_features(sp, tracks_df)
 
-            if features_result.empty:
-                features_result = track_features_df
-            else:
-                features_result = pd.concat([features_result, track_features_df], ignore_index=True)
+            yield orjson.dumps(
+                {
+                    str(i): asdict(TrackFeatures.from_series(row))
+                    for i, row in track_features_df.iterrows()
+                }
+            )
 
-    track_features_list = [
-        TrackFeatures.from_series(row) for _, row in track_features_df.iterrows()
-    ]
+        if result["next"] is None:
+            break
 
-    return track_features_list
+
+@router.get("/saved")
+async def saved_tracks():
+    access_token = await get_cached_access_token(sp_oauth)
+
+    print("Access token available! Trying to get user information...")
+    sp = spotipy.Spotify(access_token)
+    return StreamingResponse(generate_next_tracks(sp))

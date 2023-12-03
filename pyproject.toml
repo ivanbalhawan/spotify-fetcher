@@ -34,7 +34,7 @@ dev = [
 ]
 
 [tool.pdm.scripts]
-start.cmd = "uvicorn src.main:app --reload --workers 1 --host 0.0.0.0 --port 56626"
+server.cmd = "python src/main.py"
 start.env_file.override = ".env"
 
 [tool.mypy]

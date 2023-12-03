@@ -1,7 +1,7 @@
 from spotipy import oauth2
 
-from src.config import auth_settings
-from src.config import backend_settings
+from config import auth_settings
+from config import backend_settings
 
 sp_oauth = oauth2.SpotifyOAuth(
     auth_settings.spotipy_client_id,
